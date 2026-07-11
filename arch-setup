@@ -1,0 +1,492 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+# Settings
+TIMEZONE="Europe/Copenhagen"
+KEYMAP="dk"
+LANGUAGE="en_DK.UTF-8"
+REFLECTOR_COUNTRIES="Denmark,Germany,France"
+INSTALL_GRUB=true
+
+MACHINE_HOSTNAME=$(uname -n)
+TARGET_USER="${SUDO_USER:-$(id -nu 1000 2>/dev/null || echo "archuser")}"
+DOTFILES_REPO="https://github.com/fhmj/dotfiles.git"
+DOTFILES_REMOTE_ORIGIN="git@github.com:fhmj/dotfiles.git"
+
+PACMAN_PACKAGES=(
+    # Core system packages
+    base base-devel linux linux-firmware
+    networkmanager
+    # Bootloader
+    grub efibootmgr btrfs-progs
+    # Drivers
+    amd-ucode mesa lib32-mesa vulkan-radeon lib32-vulkan-radeon
+    libva-mesa-driver lib32-libva-mesa-driver libva-utils
+    pipewire-pulse pipewire-jack
+    bluez bluez-utils
+    # Fonts
+    ttf-jetbrains-mono-nerd
+    ttf-liberation
+    # Utilities
+    git git-delta ripgrep fzf man-db man-pages
+    rsync openssh pkgstats btop nvtop lm_sensors
+    tmux ufw reflector
+    composer docker ansible fontforge
+    php php-gd php-redis php-sqlite php-pgsql
+    # Display Manager & DE
+    sddm hyprland xdg-desktop-portal-hyprland
+    # Applications
+    nvim kitty firefox gimp inkscape libreoffice-fresh filezilla
+    prusa-slicer blender freecad
+    steam discord gamemode lib32-gamemode
+)
+
+AUR_PACKAGES=(
+  lycheeslicer
+)
+
+# Prompt colors
+C_GREEN='\033[1;32m'
+C_CYAN='\033[1;36m'
+C_RED='\033[1;31m'
+C_RESET='\033[0m'
+
+log_step() { printf "\n${C_GREEN}==> %s${C_RESET}\n" "$*"; }
+log_action() { printf "  ${C_GREEN}+${C_RESET} %s\n" "$*"; }
+log_skip()   { printf "\n${C_CYAN}==> %s, skipping${C_RESET}\n" "$*"; }
+log_error()  { printf "${C_RED}  ✘ %s${C_RESET}\n" "$*">&2; }
+
+check_root() {
+    if [[ "$EUID" -ne 0 ]]; then
+        log_error "This script must be run as root (or inside arch-chroot)."
+        exit 1
+    fi
+}
+
+validate_settings() {
+    # Bootloader
+    if $INSTALL_GRUB && [[ ! -d /sys/firmware/efi/efivars ]]; then
+        log_error "Not booted in UEFI mode - skipping GRUB install/config"
+        log_error "This script only automates the UEFI path; configure GRUB manually for BIOS/legacy boot"
+        INSTALL_GRUB=false
+    else
+        if ! mountpoint -q /boot; then
+            log_error "/boot is not a mounted filesystem - skipping GRUB install/config"
+            log_error "Mount your EFI system partition at /boot before running this script"
+            INSTALL_GRUB=false
+        fi
+    fi
+
+    # Timezone
+    if [[ ! -f "/usr/share/zoneinfo/$TIMEZONE" ]]; then
+        log_error "Unknown timezone \"$TIMEZONE\""
+        log_error "Run the command \"ls -la /usr/share/zoneinfo\" to see available timezones"
+        exit 1
+    fi
+
+    # Keyboard layout
+    if ! find /usr/share/kbd/keymaps/ -type f -name "${KEYMAP}.map.gz" | grep -q .; then
+        log_error "Unknown keymap \"$KEYMAP\""
+        log_error "Run the command \"ls -R /usr/share/kbd/keymaps/\" to see available keymaps"
+        exit 1
+    fi
+
+    # Language
+    if ! grep -qE "^#?${LANGUAGE//./\\.}" /etc/locale.gen; then
+        log_error "Unknown language \"$LANGUAGE\""
+        log_error "Look at the contents of \"/etc/locale.gen\" to see the available locales"
+        exit 1
+    fi
+
+    # Pacman packages
+    MISSING_PACMAN_PACKAGES=()
+    for pkg in "${PACMAN_PACKAGES[@]}"; do
+        if ! pacman -Qi "$pkg" &>/dev/null; then
+            MISSING_PACMAN_PACKAGES+=("$pkg")
+        fi
+    done
+
+    # AUR packages
+    if ! command -v yay &>/dev/null; then
+        MISSING_AUR_PACKAGES=("${AUR_PACKAGES[@]}")
+    else
+        MISSING_AUR_PACKAGES=()
+        for pkg in "${AUR_PACKAGES[@]}"; do
+            if ! yay -Q "$pkg" &>/dev/null; then
+                MISSING_AUR_PACKAGES+=("$pkg")
+            fi
+        done
+    fi
+}
+
+gather_facts() {
+    # Hostname
+    read -rp "Name of this machine [$MACHINE_HOSTNAME]: " PROMPT
+    MACHINE_HOSTNAME="${PROMPT:-$MACHINE_HOSTNAME}"
+
+    # Root password
+    while true; do
+        read -rp "Set root password (leave empty to skip): " -s ROOT_PASS && echo
+
+        [[ -z $ROOT_PASS ]] && break
+
+        read -rp "Repeat root password: " -s ROOT_PASS_REPEAT && echo
+        if [ "$ROOT_PASS" = "$ROOT_PASS_REPEAT" ] && [ -n "$ROOT_PASS" ]; then
+            break
+        fi
+
+        log_error "Passwords did not match, try again"
+    done
+
+    # Sudo user
+    while true; do
+        read -rp "Name of sudo user [$TARGET_USER]: " PROMPT
+        if [[ "$PROMPT" == "root" ]]; then
+            log_error "Sudo user cannot be \"root\" - enter a non-root username"
+            continue
+        fi
+
+        TARGET_USER="${PROMPT:-$TARGET_USER}"
+        TARGET_HOME="/home/$TARGET_USER"
+        break
+    done
+
+    # Password
+    while true; do
+        read -rp "Set password (leave empty to skip): " -s USER_PASS && echo
+        [[ -z $USER_PASS ]] && break
+
+        read -rp "Repeat user password: " -s USER_PASS_REPEAT && echo
+        if [ "$USER_PASS" = "$USER_PASS_REPEAT" ] && [ -n "$USER_PASS" ]; then
+            break
+        fi
+
+        log_error "Passwords did not match, try again"
+    done
+
+    # SSH key generation
+    SSH_KEY_PATH="$TARGET_HOME/.ssh/id_ed25519"
+    SSH_KEY_DIR="$(dirname "$SSH_KEY_PATH")"
+    if [ ! -f "$SSH_KEY_PATH" ]; then
+        read -rp "No SSH key found at $SSH_KEY_PATH. Generate one now? [y/N]: " GENERATE_SSH_KEY
+        if [[ "$GENERATE_SSH_KEY" =~ ^[yY]$ ]]; then
+            while true; do
+                read -rp "Set SSH key password (leave empty to skip): " -s SSH_PASS && echo
+                [[ -z $SSH_PASS ]] && break
+
+                read -rp "Repeat SSH key password: " -s SSH_PASS_REPEAT && echo
+                if [ "$SSH_PASS" = "$SSH_PASS_REPEAT" ] && [ -n "$SSH_PASS" ]; then
+                    break
+                fi
+                log_error "Passwords did not match, try again"
+            done
+            read -rp "Comment/label for the SSH key: " SSH_KEY_COMMENT
+        fi
+    fi
+
+    # Dotfiles
+    DOTFILES_PATH="$TARGET_HOME/.dotfiles"
+    if [ ! -d "$DOTFILES_PATH" ]; then
+        read -rp "Download dotfiles from \"$DOTFILES_REPO\" into \"$DOTFILES_PATH\"? [y/N]: " DOWNLOAD_DOTS
+    fi
+}
+
+confirm_changes() {
+    log_step "Applying changes"
+
+    # System settings
+    $INSTALL_GRUB && log_action "Installing GRUB bootloader"
+    log_action "Setting hostname to \"$MACHINE_HOSTNAME\""
+    log_action "Setting timezone to \"$TIMEZONE\""
+    log_action "Setting keyboard layout to \"$KEYMAP\""
+    log_action "Setting language to \"$LANGUAGE\""
+    [[ -n ${ROOT_PASS:-} ]] && log_action "Updating root password"
+
+    # Sudo user
+    if id -u "$TARGET_USER" > /dev/null 2>&1; then
+        log_action "Updating sudo user \"$TARGET_USER\""
+    else
+        log_action "Creating sudo user \"$TARGET_USER\""
+    fi
+    [[ -n ${USER_PASS:-} ]] && log_action "Updating sudo user password"
+
+    if [[ "${GENERATE_SSH_KEY:-}" =~ ^[yY]$ ]]; then
+        log_action "Generating SSH key \"$SSH_KEY_PATH\" for sudo user \"$TARGET_USER\""
+    fi
+
+    if [[ "${DOWNLOAD_DOTS:-}" =~ ^[yY]$ ]]; then
+        log_action "Downloading dotfiles from \"$DOTFILES_REPO\" into \"$DOTFILES_PATH\""
+    fi
+
+    # Packages
+    if [[ ${#MISSING_PACMAN_PACKAGES[@]} -gt 0 ]]; then
+        if [[ ${#MISSING_PACMAN_PACKAGES[@]} -eq 1 ]]; then
+            log_action "Install package from pacman: ${MISSING_PACMAN_PACKAGES[*]}"
+        else
+            log_action "Install packages from pacman: ${MISSING_PACMAN_PACKAGES[*]}"
+        fi
+    fi
+
+    if [[ ${#MISSING_AUR_PACKAGES[@]} -gt 0 ]]; then
+        if [[ ${#MISSING_AUR_PACKAGES[@]} -eq 1 ]]; then
+            log_action "Install package from AUR: ${MISSING_AUR_PACKAGES[*]}"
+        else
+            log_action "Install packages from AUR: ${MISSING_AUR_PACKAGES[*]}"
+        fi
+    fi
+
+    echo
+    read -rp "Confirm? [y/N]: " PROMPT
+    if [[ ! "$PROMPT" =~ ^[yY]$ ]]; then
+        echo "Aborting"
+        exit 0
+    fi
+}
+
+install_packages() {
+    log_step "Enabling pacman multilib repository"
+    if ! grep -q '^\[multilib\]' /etc/pacman.conf; then
+        sed -i '/^#\[multilib\]/,/^#Include/ s/^#//' /etc/pacman.conf
+    fi
+
+    log_step "Updating Pacman"
+    pacman -Syu > /dev/null
+    if [[ "${#MISSING_PACMAN_PACKAGES[@]}" -eq 0 ]]; then
+        log_skip "Pacman packages already installed"
+    else
+        log_step "Installing pacman packages"
+        pacman -S --needed "${MISSING_PACMAN_PACKAGES[@]}"
+    fi
+
+}
+
+configure_bootloader() {
+    if ! $INSTALL_GRUB; then
+        log_skip "GRUB bootloader check failed"
+        return
+    fi
+
+    if [[ ! -f /boot/EFI/GRUB/grubx64.efi ]]; then
+        log_step "Installing GRUB bootloader"
+        grub-install --target=x86_64-efi --efi-directory=/boot --bootloader-id=GRUB
+    fi
+
+    log_step "Regenerating GRUB config"
+    grub-mkconfig -o /boot/grub/grub.cfg &> /dev/null
+}
+
+install_aur_packages() {
+    SUDOERS_TMP="/etc/sudoers.d/99-aur-installer-tmp"
+    echo "$TARGET_USER ALL=(ALL) NOPASSWD: ALL" > "$SUDOERS_TMP"
+
+    cleanup() {
+        # Clear paths explicitly to avoid any unbound variable traps
+        rm -f "$SUDOERS_TMP"
+        rm -rf "/tmp/makepkg_yay"
+    }
+    trap cleanup EXIT INT TERM
+
+    # Install Yay
+    if ! command -v yay &>/dev/null; then
+        log_step "Installing yay"
+        rm -rf /tmp/makepkg_yay
+        runuser -u "$TARGET_USER" -- git clone -q https://aur.archlinux.org/yay.git /tmp/makepkg_yay
+        (cd /tmp/makepkg_yay && runuser -u "$TARGET_USER" -- makepkg -si --noconfirm)
+    else
+        log_skip "Yay already installed"
+    fi
+
+    # Install AUR packages
+    if [[ "${#MISSING_AUR_PACKAGES[@]}" -eq 0 ]]; then
+        log_skip "AUR packages already installed"
+    else
+        log_step "Installing AUR packages"
+        runuser -u "$TARGET_USER" -- yay -Syu --needed "${MISSING_AUR_PACKAGES[@]}"
+    fi
+
+    # Run cleanup and reset traps
+    cleanup
+    trap - EXIT INT TERM
+}
+
+configure_machine() {
+    # Root password
+    if [[ -n "${ROOT_PASS:-}" ]]; then
+        log_step "Setting root password"
+        chpasswd <<< "root:${ROOT_PASS}"
+    else
+        log_skip "Root password not given"
+    fi
+
+    # Hostname
+    log_step "Setting hostname to \"$MACHINE_HOSTNAME\""
+    echo "${MACHINE_HOSTNAME}" > /etc/hostname
+
+    # Timezone
+    log_step "Setting timezone to \"$TIMEZONE\""
+    ln -sf "/usr/share/zoneinfo/$TIMEZONE" /etc/localtime
+    hwclock --systohc
+
+    # Generate locale
+    sed -i "s/^#${LANGUAGE//./\\.}/$LANGUAGE/" /etc/locale.gen
+    sed -i 's/^#en_US.UTF-8 UTF-8/en_US.UTF-8 UTF-8/' /etc/locale.gen
+    locale-gen > /dev/null
+
+    log_step "Setting language to \"$LANGUAGE\""
+    echo "LANG=$LANGUAGE" > /etc/locale.conf
+
+    # Keyboard layout
+    log_step "Setting keyboard layout to \"$KEYMAP\""
+    echo "KEYMAP=$KEYMAP" > /etc/vconsole.conf
+
+    mkdir -p /etc/X11/xorg.conf.d
+    {
+        echo 'Section "InputClass"'
+        echo '    Identifier "system-keyboard"'
+        echo '    MatchIsKeyboard "on"'
+        echo "    Option \"XkbLayout\" \"$KEYMAP\""
+        echo 'EndSection'
+    } > /etc/X11/xorg.conf.d/00-keyboard.conf
+}
+
+configure_sudo() {
+    if [[ "$TARGET_USER" == "root" ]]; then
+        log_error "Refusing to configure sudo access for \"root\" - this should never happen"
+        exit 1
+    fi
+
+    # Wheel group sudoers
+    log_step "Adding wheel group to sudoers"
+    echo "%wheel ALL=(ALL:ALL) ALL" > /etc/sudoers.d/10-wheel
+    chmod 440 /etc/sudoers.d/10-wheel
+    visudo -cf /etc/sudoers.d/10-wheel > /dev/null
+
+    # Sudo user creation
+    if id -u "$TARGET_USER" >/dev/null 2>&1; then
+        log_step "Updating user \"$TARGET_USER\""
+        usermod -aG wheel "$TARGET_USER"
+    else
+        log_step "Creating user \"$TARGET_USER\""
+        useradd -m -G wheel -s /bin/bash "$TARGET_USER"
+    fi
+
+    # Sudo user password
+    if [[ -n "${USER_PASS:-}" ]]; then
+        log_step "Updating password for \"$TARGET_USER\""
+        chpasswd <<< "${TARGET_USER}:${USER_PASS}"
+    else
+        log_skip "User password not given"
+    fi
+
+    # Add to docker group
+    log_step "Adding user \"$TARGET_USER\" to docker group"
+    groupadd -f docker
+    usermod -aG docker "$TARGET_USER"
+
+    # Generate SSH key
+    if [[ -n ${GENERATE_SSH_KEY:-} ]] && [[ "$GENERATE_SSH_KEY" =~ ^[yY]$ ]]; then
+        log_step "Generating new SSH key \"$SSH_KEY_PATH\" for user \"$TARGET_USER\""
+        runuser -u "$TARGET_USER" -- mkdir -p "$SSH_KEY_DIR"
+        chmod 700 "$SSH_KEY_DIR"
+        runuser -u "$TARGET_USER" -- ssh-keygen -t ed25519 -C "${SSH_KEY_COMMENT:-}" -f "$SSH_KEY_PATH" -N "${SSH_PASS:-}"
+    fi
+
+    # Download dotfiles
+    if [[ -n ${DOWNLOAD_DOTS:-} ]] && [[ "$DOWNLOAD_DOTS" =~ ^[yY]$ ]]; then
+        log_step "Downloading dotfiles from \"$DOTFILES_REPO\" into \"$DOTFILES_PATH\""
+	runuser -u "$TARGET_USER" -- env GIT_TERMINAL_PROMPT=0 git clone -q "$DOTFILES_REPO" "$DOTFILES_PATH" < /dev/null
+	# Change origin url to SSH variant
+        runuser -u "$TARGET_USER" -- git -C "$DOTFILES_PATH" remote set-url origin "$DOTFILES_REMOTE_ORIGIN"
+    fi
+}
+
+configure_packages() {
+    # PHP
+    log_step "Configuring PHP"
+    sed -i "s|^;date.timezone =.*|date.timezone = ${TIMEZONE}|" /etc/php/php.ini
+    sed -i 's/^;extension=gd/extension=gd/' /etc/php/php.ini
+    sed -i 's/^;extension=intl/extension=intl/' /etc/php/php.ini
+    sed -i 's/^;extension=sqlite3/extension=sqlite3/' /etc/php/php.ini
+    sed -i 's/^;extension=pdo_sqlite/extension=pdo_sqlite/' /etc/php/php.ini
+    sed -i 's/^;extension=pdo_pgsql/extension=pdo_pgsql/' /etc/php/php.ini
+    sed -i 's/^;extension=pgsql/extension=pgsql/' /etc/php/php.ini
+
+    # Ansible
+    log_step "Configuring Ansible"
+    mkdir -p /etc/ansible
+    {
+        echo "[ssh_connection]"
+        echo "pipelining = true"
+        echo "ssh_extra_args = -o ForwardAgent=yes"
+    } > /etc/ansible/ansible.cfg
+
+    # Docker
+    log_step "Enabling Docker"
+    systemctl enable --quiet docker.service
+
+    # UFW
+    log_step "Configuring and enabling UFW"
+    sed -i 's/^DEFAULT_INPUT_POLICY=.*/DEFAULT_INPUT_POLICY="DROP"/' /etc/default/ufw
+    sed -i 's/^DEFAULT_OUTPUT_POLICY=.*/DEFAULT_OUTPUT_POLICY="ACCEPT"/' /etc/default/ufw
+    sed -i 's/^ENABLED=.*/ENABLED=yes/' /etc/ufw/ufw.conf
+    systemctl enable --quiet ufw
+
+    # Reflector
+    log_step "Enabling automatic Reflector mirrorlist sorting"
+    mkdir -p /etc/xdg/reflector
+    {
+        echo "--save /etc/pacman.d/mirrorlist"
+        echo "--protocol https"
+        echo "--latest 10"
+        echo "--sort rate"
+        echo "--country ${REFLECTOR_COUNTRIES}"
+    } > /etc/xdg/reflector/reflector.conf
+    systemctl enable --quiet reflector.timer
+
+    # SDDM
+    log_step "Enabling SDDM"
+    mkdir -p /etc/sddm.conf.d
+    {
+        echo "[General]"
+        echo "Numlock=on"
+    } > /etc/sddm.conf.d/10-general.conf
+    systemctl enable --quiet sddm
+
+    # Network Manager
+    log_step "Enabling NetworkManager"
+    systemctl enable --quiet NetworkManager
+
+    # Bluetooth
+    log_step "Enabling Bluetooth"
+    systemctl enable --quiet bluetooth
+
+    # NTP sync
+    log_step "Enable NTP sync"
+    systemctl enable --quiet systemd-timesyncd.service
+}
+
+apply_changes() {
+    install_packages
+    configure_bootloader
+    configure_machine
+    configure_sudo
+    install_aur_packages
+    configure_packages
+}
+
+main() {
+    log_step "Arch Install"
+    check_root
+
+    {
+        validate_settings
+        gather_facts
+        confirm_changes
+        apply_changes
+    } < /dev/tty
+
+    log_step "Done - a reboot is recommended so all enabled services take effect"
+}
+
+main
