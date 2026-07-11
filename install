@@ -34,5 +34,14 @@ systemctl --user enable --quiet --now ssh-agent.service
 rm -rf $HOME/.local/bin
 ln -s $DOTFILES/bin $HOME/.local/bin
 
+# Symfony
+if ! command -v symfony &> /dev/null; then
+    rm -rf "$HOME/.symfony5"
+    rm -rf "$HOME/.config/symfony-cli"
+    bash -c 'curl -sS https://get.symfony.com/cli/installer | bash'
+    mkdir -p "$HOME/.config"
+    mv "$HOME/.symfony5" "$HOME/.config/symfony-cli"
+fi
+
 # Refresh config
 source $HOME/.bashrc
