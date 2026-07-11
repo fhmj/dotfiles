@@ -7,3 +7,12 @@
 
 source $HOME/.alias
 source $HOME/.prompt
+
+# Check dotfiles repo status on shell load
+if [ -z "$TMUX" ] && [ -d "$HOME/.dotfiles" ]; then
+    dotfiles_status="$(git -C "$HOME/.dotfiles" status --porcelain 2>/dev/null)"
+    if [ ! -z "$dotfiles_status" ]; then
+        echo "${HOME}/.dotfiles: changes detected, you should consider committing them."
+        git -C "$HOME/.dotfiles" s
+    fi
+fi
