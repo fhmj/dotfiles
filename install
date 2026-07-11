@@ -33,3 +33,6 @@ systemctl --user enable --quiet --now ssh-agent.service
 # Custom functions
 rm -rf $HOME/.local/bin
 ln -s $DOTFILES/bin $HOME/.local/bin
+
+# Refresh config
+source $HOME/.bashrc
