@@ -1,0 +1,49 @@
+alias aliases="alias | sed 's/=.*//'"
+alias functions="declare -f | grep '^[a-z].* ()' | sed 's/{$//'"
+alias paths='echo -e ${PATH//:/\\n}'
+
+alias sudo="sudo " # Enable aliases to be sudo'ed
+
+alias _="sudo "
+alias g="git"
+alias grep='grep --color=auto'
+alias ls='ls --color=auto'
+
+# List all files in long format, directories first, sorted by name
+alias l="ls -lah --color=auto --time-style=long-iso --group-directories-first"
+
+# List all files in long format, directories first, sorted by time (newest first)
+alias lt="ls -lht --color=auto --time-style=long-iso --group-directories-first"
+
+# List all files in long format, directories first, sorted by time (oldest first)
+alias ltr="ls -lhtr --color=auto --time-style=long-iso --group-directories-first"
+
+# Navigation
+alias ..="cd .."
+alias ...="cd ../.."
+alias ....="cd ../../.."
+alias .....="cd ../../../.."
+alias -- -="cd -" # Go to previous dir with -
+
+alias cd.='cd $(readlink -f .)' # Go to real dir (i.e. if current dir is linked)
+alias d="cd ~/Documents"
+alias dl="cd ~/Downloads"
+alias dt="cd ~/Desktop"
+alias p="cd ~/Projects"
+
+alias week="date '+%d/%m/%Y(W%V) %H:%M:%S'"
+
+# Intuitive map function
+# For example, to list all directories that contain a certain file:
+# find . -name .gitattributes | map dirname
+alias map="xargs -n1"
+
+# Symfony
+alias sc="symfony console"
+alias scmig="symfony console make:migration"
+alias scmeg="symfony console doctrine:migrations:migrate"
+alias scfixload="symfony console doctrine:fixtures:load"
+alias scsql="symfony console dbal:run-sql"
+alias sctest="symfony php bin/phpunit"
+alias scdrop="symfony console doctrine:schema:drop --force --full-database"
+alias screset="scdrop && scmeg -n && scmig -n && scmeg -n"
