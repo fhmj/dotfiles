@@ -23,3 +23,7 @@ mkdir -p $HOME/.config/systemd/user
 ln -sf $DOTFILES/systemd/ssh-agent.service $HOME/.config/systemd/user/ssh-agent.service
 systemctl --user daemon-reload
 systemctl --user enable --quiet --now ssh-agent.service
+
+# Custom functions
+rm -rf $HOME/.local/bin
+ln -s $DOTFILES/bin $HOME/.local/bin

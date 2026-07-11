@@ -1,0 +1,68 @@
+#!/usr/bin/env bash
+
+# Add host shortcut to ssh conf
+force=0
+args=()
+
+for arg in "$@"; do
+  if [[ "$arg" == "--force" || "$arg" == "-f" ]]; then
+    force=1
+  else
+    args+=("$arg")
+  fi
+done
+
+name="${args[0]}"
+ip="${args[1]}"
+user="${args[2]}"
+config_file="${args[3]:-$HOME/.ssh/config.local}"
+
+if [[ -z "$name" || -z "$ip" || -z "$user" ]]; then
+  echo "Usage: ssh-add-host [--force] <name> <ip> <user> [config_file]"
+  exit 1
+fi
+
+touch "$config_file"
+
+# check if this host already exists
+exists=0
+if grep -qE "^Host[[:space:]]+${name}\$" "$config_file"; then
+  exists=1
+fi
+
+if [[ $exists -eq 1 && $force -eq 0 ]]; then
+  echo "Host '$name' already exists in $config_file — skipping. Use --force to overwrite."
+  exit 1
+fi
+
+if [[ $exists -eq 1 && $force -eq 1 ]]; then
+  # remove the existing Host block (from "Host <name>" until the next "Host " line or EOF)
+  tmp_file
+  tmp_file=$(mktemp)
+
+  awk -v name="$name" '
+    BEGIN { skip = 0 }
+  ^Host[ \t]+/ {
+      if ($2 == name) { skip = 1; next }
+      else { skip = 0 }
+    }
+    skip == 0 { print }
+  ' "$config_file" > "$tmp_file"
+
+  mv "$tmp_file" "$config_file"
+
+  # trim trailing blank lines left behind
+  sed -i -e :a -e '/^\n*$/{$d;N;ba' -e '}' "$config_file"
+
+  echo "Removed existing entry for '$name'."
+fi
+
+{
+  echo ""
+  echo "Host $name"
+  echo "  HostName $ip"
+  echo "  User $user"
+  echo "  ForwardAgent yes"
+} >> "$config_file"
+
+echo "Added '$name' ($user@$ip) to $config_file"

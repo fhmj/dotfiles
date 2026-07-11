@@ -8,6 +8,8 @@
 source $HOME/.alias
 source $HOME/.prompt
 
+export PATH="$HOME/.local/bin:$PATH"
+
 # Check dotfiles repo status on shell load
 if [ -z "$TMUX" ] && [ -d "$HOME/.dotfiles" ]; then
     dotfiles_status="$(git -C "$HOME/.dotfiles" status --porcelain 2>/dev/null)"
