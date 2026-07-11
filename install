@@ -16,3 +16,9 @@ ln -s $DOTFILES/kitty $HOME/.config/kitty
 
 # Tmux
 ln -sf $DOTFILES/tmux/tmux.conf $HOME/.tmux.conf
+
+# SSH agent
+mkdir -p $HOME/.config/systemd/user
+ln -sf $DOTFILES/systemd/ssh-agent.service $HOME/.config/systemd/user/ssh-agent.service
+systemctl --user daemon-reload
+systemctl --user enable --quiet --now ssh-agent.service
