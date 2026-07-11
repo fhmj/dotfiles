@@ -11,3 +11,6 @@ ln -sf $DOTFILES/git/gitconfig $HOME/.gitconfig
 # Kitty
 rm -rf $HOME/.config/kitty
 ln -s $DOTFILES/kitty $HOME/.config/kitty
+
+# Tmux
+ln -sf $DOTFILES/tmux/tmux.conf $HOME/.tmux.conf
