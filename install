@@ -7,3 +7,7 @@ ln -sf $DOTFILES/bash/bashrc $HOME/.bashrc
 
 # Git
 ln -sf $DOTFILES/git/gitconfig $HOME/.gitconfig
+
+# Kitty
+rm -rf $HOME/.config/kitty
+ln -s $DOTFILES/kitty $HOME/.config/kitty
