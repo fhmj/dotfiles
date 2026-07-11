@@ -1,5 +1,11 @@
 #!/usr/bin/env bash
 
+# Require non-root sudo user
+if [[ $EUID -eq 0 ]]; then
+    echo "Please run this command as your normal user, not root (or sudo.)"
+    exit 1
+fi
+
 DOTFILES=$(cd $(dirname "${BASH_SOURCE[0]}") && pwd)
 
 # Bash
