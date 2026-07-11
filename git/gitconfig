@@ -1,0 +1,114 @@
+[user]
+    email = frankhjorth@gmail.com
+    name = Frank Jensen
+
+[github]
+    user = fhmj
+
+[init]
+    defaultBranch = master
+
+[core]
+    editor = nvim
+    autocrlf = false
+    hooksPath = ./.githooks
+    pager = delta
+
+[interactive]
+    diffFilter = delta --color-only
+
+[delta]
+    line-numbers = true
+    syntax-theme = Dracula
+    plus-style = "syntax #2A363B"
+    plus-emph-style = "syntax #2D4E45"
+    minus-style = "syntax #3B2C37"
+    minus-emph-style = "syntax #613038"
+
+[diff]
+    tool = vimdiff
+
+[rerere]
+    enabled = true
+
+[rebase]
+    autosquash = true
+
+[merge]
+    conflictstyle = diff3
+    ff = false
+
+[fetch]
+    prune = true
+
+[pull]
+    rebase = false
+
+[apply]
+    whitespace = fix
+
+[color]
+    ui = auto
+
+[color "decorate"]
+    branch = green bold
+    remoteBranch = red bold
+
+[alias]
+    aliases = config --get-regexp alias
+
+    unstage = reset HEAD
+    undo = reset --soft HEAD^
+
+    fixup = !git log -n 50 --pretty=format:'%h %s' --no-merges | fzf | cut -c -7 | xargs -o git commit --fixup
+    fixpop = !git stash -u && git rebase -i master && git stash pop
+
+    a = add
+    aa = add --all
+    ap = add --patch
+    au = add --update
+
+    b = branch --sort=-committerdate --all --verbose
+    bd = branch --delete
+    bD = branch --delete --force
+    bm = branch --move
+    bM = branch --move --force
+    brm = "!git branch --merged master | grep -v -E '(origin|master)'"
+    brmd = "!git brm | xargs git branch -d"
+
+    c = commit
+    ca = commit --amend
+    ci = commit --interactive
+    cm = commit --message
+    cv = commit --verbose
+
+    d = diff
+    ds = !"clear; git diff --staged"
+    # Show the diff between the latest commit and the current state.
+    dl = !"git diff-index --quiet HEAD -- || clear; git --no-pager diff --patch-with-stat"
+    # `git di $number` shows the diff between the state `$number` revisions ago and the current state.
+    db = !"d() { git diff --patch-with-stat HEAD~$1; }; git diff-index --quiet HEAD -- || clear; d"
+
+    o = checkout
+    ob = checkout -b
+
+    p = push
+
+    l = log --graph --topo-order --abbrev-commit --date=relative --decorate --all --boundary --pretty=format:'%C(red)%h%C(reset) -%C(auto)%d%C(reset) %s %C(blue)(%ad, %cn)%C(reset)'
+    lp = log --patch
+
+    s = status --short --branch
+    st = status
+    sa = status -s -uall
+
+    # Find branches containing commit
+    fb = "!f() { git branch -a --contains $1; }; f"
+
+    # Find commits by source code
+    fc = "!f() { git log --pretty=format:'%C(yellow)%h  %C(blue)%ad  %C(reset)%s%C(green)  [%cn] %C(red)%d' --decorate --date=short -S$1; }; f"
+
+    # Find commits by commit message
+    fm = "!f() { git log --pretty=format:'%C(yellow)%h  %C(blue)%ad  %C(reset)%s%C(green)  [%cn] %C(red)%d' --decorate --date=short --grep=$1; }; f"
+
+[push]
+	autoSetupRemote = true
