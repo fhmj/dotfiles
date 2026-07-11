@@ -6,4 +6,4 @@
 [[ $- != *i* ]] && return
 
 source $HOME/.alias
-PS1='[\u@\h \W]\$ '
+source $HOME/.prompt
