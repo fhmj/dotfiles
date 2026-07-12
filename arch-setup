@@ -42,6 +42,7 @@ PACMAN_PACKAGES=(
     nvim kitty firefox gimp inkscape libreoffice-fresh filezilla
     prusa-slicer blender freecad
     steam discord gamemode lib32-gamemode
+    # AUTO ADDED PACKAGES
 )
 
 AUR_PACKAGES=(
@@ -404,6 +405,24 @@ configure_sudo() {
 	runuser -u "$TARGET_USER" -- env GIT_TERMINAL_PROMPT=0 git clone -q "$DOTFILES_REPO" "$DOTFILES_PATH" < /dev/null
 	# Change origin url to SSH variant
         runuser -u "$TARGET_USER" -- git -C "$DOTFILES_PATH" remote set-url origin "$DOTFILES_REMOTE_ORIGIN"
+    fi
+
+    # Configure automatic tracking of Pacman packages
+    if [ -f "$DOTFILES_PATH/arch-setup" ]; then
+	log_step "Adding Pacman package hook to user install script"
+        mkdir -p /etc/pacman.d/hooks
+        {
+	    echo "[Trigger]"
+	    echo "Operation = Install"
+	    echo "Type = Package"
+	    echo "Target = *"
+
+	    echo "[Action]"
+	    echo "Description = Tracking newly installed packages to dotfiles..."
+	    echo "When = PostTransaction"
+	    echo "NeedsTargets"
+	    echo "Exec = ${DOTFILES_PATH}/bin/track-pkg"
+	} > "/etc/pacman.d/hooks/track-packages-${TARGET_USER}.hook"
     fi
 }
 

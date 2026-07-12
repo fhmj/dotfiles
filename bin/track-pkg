@@ -1,0 +1,40 @@
+#!/usr/bin/env bash
+
+DOTFILES=$(cd $(dirname $(dirname "${BASH_SOURCE[0]}")) && pwd)
+TARGET_SCRIPT="$DOTFILES/arch-setup"
+
+package_exists() {
+    grep -qP "(?<!\S)\Q${1}\E(?!\S)" "$TARGET_SCRIPT"
+}
+
+add_package() {
+    local pkg="$1"
+
+    # Filter for packages that have been explicitly installed by user
+    if pacman -Qei "$pkg" 2>/dev/null | grep -q "Install Reason.*Explicitly"; then
+	# Check if package is already present in target script
+	if ! package_exists "${pkg}"; then
+	    sed -i '/# AUTO ADDED PACKAGES/a \    '"${pkg}" "$TARGET_SCRIPT"
+	    if ! package_exists "${pkg}"; then
+	        echo "  ! [Dotfiles] Failed to add package \"${pkg}\" to \"$TARGET_SCRIPT\""
+		return 1
+	    fi
+
+	    echo "[Dotfiles] Added explicitly installed package \"${pkg}\" to \"$TARGET_SCRIPT\""
+	else
+	    echo "[Dotfiles] Package \"${pkg}\" already present in \"$TARGET_SCRIPT\", skipping"
+	fi
+    fi
+}
+
+# Process packages given via arguments
+if [ "$#" -gt 0 ]; then
+    for arg in "$@"; do
+        add_package "$arg"
+    done
+# Interactive, process packages line-by-line via stdin
+else
+    while read -r line; do
+        [[ -n "$line" ]] && add_package "$line"
+    done
+fi
