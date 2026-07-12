@@ -8,6 +8,8 @@ KEYMAP="dk"
 LANGUAGE="en_DK.UTF-8"
 REFLECTOR_COUNTRIES="Denmark,Germany,France"
 INSTALL_GRUB=true
+GRUB_TIMEOUT=0
+GRUB_TIMEOUT_STYLE="hidden"
 
 MACHINE_HOSTNAME=$(uname -n)
 TARGET_USER="${SUDO_USER:-$(id -nu 1000 2>/dev/null || echo "archuser")}"
@@ -271,6 +273,10 @@ configure_bootloader() {
         log_step "Installing GRUB bootloader"
         grub-install --target=x86_64-efi --efi-directory=/boot --bootloader-id=GRUB
     fi
+
+    log_step "Configuring GRUB"
+    sed -i "s/^GRUB_TIMEOUT=.*/GRUB_TIMEOUT=${GRUB_TIMEOUT}/" /etc/default/grub
+    sed -i "s/^GRUB_TIMEOUT_STYLE=.*/GRUB_TIMEOUT_STYLE=${GRUB_TIMEOUT_STYLE}/" /etc/default/grub
 
     log_step "Regenerating GRUB config"
     grub-mkconfig -o /boot/grub/grub.cfg &> /dev/null
