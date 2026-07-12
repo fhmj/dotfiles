@@ -47,3 +47,6 @@ alias scsql="symfony console dbal:run-sql"
 alias sctest="symfony php bin/phpunit"
 alias scdrop="symfony console doctrine:schema:drop --force --full-database"
 alias screset="scdrop && scmeg -n && scmig -n && scmeg -n"
+
+# Dotfiles
+alias dot="git -C ${HOME}/.dotfiles"
