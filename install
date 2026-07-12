@@ -8,6 +8,9 @@ fi
 
 DOTFILES=$(cd $(dirname "${BASH_SOURCE[0]}") && pwd)
 
+# Ensure config dir exists
+mkdir -p $HOME/.config -p
+
 # Bash
 ln -sf $DOTFILES/bash/bashrc $HOME/.bashrc
 ln -sf $DOTFILES/bash/alias $HOME/.alias
