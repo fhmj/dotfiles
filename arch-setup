@@ -407,6 +407,11 @@ configure_sudo() {
         runuser -u "$TARGET_USER" -- git -C "$DOTFILES_PATH" remote set-url origin "$DOTFILES_REMOTE_ORIGIN"
     fi
 
+    # Install dotfiles
+    if [ -f "${DOTFILES_PATH}/install" ]; then
+	runuser -u "$TARGET_USER" -- "${DOTFILES_PATH}/install"
+    fi
+
     # Configure automatic tracking of Pacman packages
     if [ -f "$DOTFILES_PATH/arch-setup" ]; then
 	log_step "Adding Pacman package hook to user install script"
