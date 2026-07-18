@@ -47,5 +47,9 @@ if ! command -v symfony &> /dev/null; then
     ln -sf "$HOME/.config/symfony-cli/bin/symfony" "$HOME/.local/bin/symfony"
 fi
 
+# Hyprland
+rm -rf $HOME/.config/hypr
+ln -s $DOTFILES/hyprland/hypr $HOME/.config/hypr
+
 # Refresh config
 source $HOME/.bashrc

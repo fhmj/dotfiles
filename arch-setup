@@ -29,15 +29,25 @@ PACMAN_PACKAGES=(
     bluez bluez-utils
     # Fonts
     ttf-jetbrains-mono-nerd
+    ttf-hack-nerd
     ttf-liberation
+    woff2-font-awesome
+    noto-fonts noto-fonts-cjk noto-fonts-emoji
+    otf-font-awesome
     # Utilities
     git git-delta ripgrep fzf man-db man-pages
     rsync openssh pkgstats btop nvtop lm_sensors
     tmux ufw reflector
-    composer docker ansible fontforge
+    composer docker ansible fontforge zip unzip
     php php-gd php-redis php-sqlite php-pgsql
-    # Display Manager & DE
-    sddm hyprland xdg-desktop-portal-hyprland
+    playerctl pavucontrol blueman
+    thunar fastfetch
+    # Thumbnail generators
+    tumbler ffmpegthumbnailer poppler-glib freetype2 libgsf libopenraw
+    # Hyprland
+    sddm xdg-desktop-portal-hyprland
+    hyprland qt5-wayland qt6-wayland
+    hyprpicker hypridle hyprshot hyprpolkitagent swaync
     # Applications
     nvim kitty firefox gimp inkscape libreoffice-fresh filezilla
     prusa-slicer blender freecad
