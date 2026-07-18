@@ -41,9 +41,10 @@ ln -s $DOTFILES/bin $HOME/.local/bin
 if ! command -v symfony &> /dev/null; then
     rm -rf "$HOME/.symfony5"
     rm -rf "$HOME/.config/symfony-cli"
-    bash -c 'curl -sS https://get.symfony.com/cli/installer | bash'
+    bash -c 'curl -sS https://get.symfony.com/cli/installer | bash' &> /dev/null
     mkdir -p "$HOME/.config"
     mv "$HOME/.symfony5" "$HOME/.config/symfony-cli"
+    ln -sf "$HOME/.config/symfony-cli/bin/symfony" "$HOME/.local/bin/symfony"
 fi
 
 # Refresh config
