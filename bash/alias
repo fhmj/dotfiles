@@ -50,3 +50,6 @@ alias screset="scdrop && scmeg -n && scmig -n && scmeg -n"
 
 # Dotfiles
 alias dot="git -C ${HOME}/.dotfiles"
+
+# Hyprland
+alias hyprconf="nvim ${HOME}/.config/hypr/hyprland.lua"
