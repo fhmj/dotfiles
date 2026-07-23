@@ -1,0 +1,49 @@
+import QtQuick
+import QtQuick.Controls
+import Quickshell.Hyprland
+import ".."
+
+Repeater {
+  id: root
+  model: Hyprland.workspaces
+  property int maxWorkspaces: 8
+
+  readonly property var occupiedMap: Hyprland.workspaces.values.reduce(
+    (acc, ws) => {
+      const winCount = (ws.lastIpcObject && ws.lastIpcObject.windows) || 0
+      acc[ws.id] = winCount > 0
+      return acc
+    },
+    {}
+  )
+
+  delegate: Item {
+    id: workspace
+    required property var modelData
+    property bool isActive: Hyprland.focusedWorkspace?.id === modelData.id
+
+    width: Theme.itemSize
+    height: Theme.itemSize
+
+    Rectangle {
+      anchors.fill: parent
+      radius: Theme.pillRadius
+      color: "#ffdddd"
+      visible: workspace.isActive
+    }
+
+    Text {
+      anchors.centerIn: parent
+      color: workspace.isActive ? "#0000ff" : "#ff0000"
+      font.pixelSize: 14
+      font.weight: 600
+
+      text: workspace.modelData.name
+
+      MouseArea {
+        anchors.fill: parent
+        onClicked: Hyprland.dispatch("workspace " + workspace.modelData.name)
+      }
+    }
+  }
+}
