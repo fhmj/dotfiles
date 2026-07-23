@@ -254,7 +254,7 @@ install_packages() {
     fi
 
     log_step "Updating Pacman"
-    pacman -Syu > /dev/null
+    pacman -Syu
     if [[ "${#MISSING_PACMAN_PACKAGES[@]}" -eq 0 ]]; then
         log_skip "Pacman packages already installed"
     else
