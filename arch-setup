@@ -21,7 +21,7 @@ PACMAN_PACKAGES=(
     base base-devel linux linux-firmware
     networkmanager
     # Bootloader
-    grub efibootmgr btrfs-progs
+    grub efibootmgr btrfs-progs plymouth
     # Drivers
     amd-ucode mesa lib32-mesa vulkan-radeon lib32-vulkan-radeon
     libva-mesa-driver lib32-libva-mesa-driver libva-utils
@@ -278,8 +278,22 @@ configure_bootloader() {
     log_step "Configuring GRUB"
     sed -i "s/^GRUB_TIMEOUT=.*/GRUB_TIMEOUT=${GRUB_TIMEOUT}/" /etc/default/grub
     sed -i "s/^GRUB_TIMEOUT_STYLE=.*/GRUB_TIMEOUT_STYLE=${GRUB_TIMEOUT_STYLE}/" /etc/default/grub
+    sed -i "s/^GRUB_CMDLINE_LINUX_DEFAULT=.*/GRUB_CMDLINE_LINUX_DEFAULT=\"quiet splash loglevel=3\"/" /etc/default/grub
+    sed -i "s/^GRUB_GFXPAYLOAD_LINUX=.*/GRUB_GFXPAYLOAD_LINUX=keep/" /etc/default/grub
+
+    log_step "Configuring Plymouth"
+    mkdir -p etc/mkinitcpio.conf.d
+    {
+        echo "MODULES=(amdgpu)"
+        echo "HOOKS=(base udev plymouth autodetect microcode modconf kms keyboard keymap consolefont block filesystems fsck)"
+    } > /etc/mkinitcpio.conf.d/plymouth.conf
+
+    for preset in /etc/mkinitcpio.d/*.preset; do
+        sed -i 's/^ALL_config=/#ALL_config=/' "$preset"
+    done
 
     log_step "Regenerating GRUB config"
+    mkinitcpio -P
     grub-mkconfig -o /boot/grub/grub.cfg &> /dev/null
 }
 
