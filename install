@@ -51,5 +51,8 @@ fi
 rm -rf $HOME/.config/hypr
 ln -s $DOTFILES/hyprland/hypr $HOME/.config/hypr
 
+rm -rf $HOME/.config/quickshell
+ln -s $DOTFILES/quickshell $HOME/.config/quickshell
+
 # Refresh config
 source $HOME/.bashrc

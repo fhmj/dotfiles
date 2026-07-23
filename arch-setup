@@ -48,6 +48,7 @@ PACMAN_PACKAGES=(
     sddm xdg-desktop-portal-hyprland
     hyprland qt5-wayland qt6-wayland
     hyprpicker hypridle hyprshot hyprpolkitagent swaync
+    quickshell
     # Applications
     nvim kitty firefox gimp inkscape libreoffice-fresh filezilla
     prusa-slicer blender freecad
