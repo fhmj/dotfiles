@@ -248,6 +248,9 @@ hl.device({
 local mainMod = "SUPER" -- Sets "Windows" key as main modifier
 local altMod = "SUPER + SHIFT"
 
+-- Refresh config
+hl.bind(mainMod .. " + R", hl.dsp.exec_cmd("~/.local/bin/refresh-config"))
+
 -- Window management
 hl.bind(mainMod .. " + Q", hl.dsp.window.close())
 hl.bind(mainMod .. " + F", hl.dsp.window.fullscreen({ action = "toggle" }))
