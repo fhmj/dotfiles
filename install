@@ -4,6 +4,7 @@ DOTFILES=$(cd $(dirname "${BASH_SOURCE[0]}") && pwd)
 
 # Bash
 ln -sf $DOTFILES/bash/bashrc $HOME/.bashrc
+ln -sf $DOTFILES/bash/alias $HOME/.alias
 
 # Git
 ln -sf $DOTFILES/git/gitconfig $HOME/.gitconfig
