@@ -205,11 +205,12 @@ hl.config({
 
 hl.config({
   input = {
-    kb_layout  = "us",
-    kb_variant = "",
+    kb_layout  = "dk",
+    kb_variant = "nodeadkeys",
     kb_model   = "",
-    kb_options = "",
+    kb_options = "compose:rctrl",
     kb_rules   = "",
+    numlock_by_default = true,
 
     follow_mouse = 1,
 
