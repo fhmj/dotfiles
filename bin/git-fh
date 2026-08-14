@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+# Show file history on HEAD
+set -euo pipefail
+
+if [ $# -lt 1 ]; then
+  echo "Show file history on HEAD"
+  echo "Usage: git fh <path>..." >&2
+  echo "" >&2
+  echo "Examples:" >&2
+  echo "  git fh src/index.php                 # History of a single file" >&2
+  echo "  git fh src/Domain/                   # History of a whole directory" >&2
+  echo "  git fh src/index.php src/Kernel.php  # History of multiple files" >&2
+  exit 1
+fi
+
+git log --follow --topo-order --abbrev-commit --date=relative --decorate --pretty=mylog --color=always \
+  -- "$1"

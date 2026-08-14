@@ -1,0 +1,26 @@
+#!/usr/bin/env bash
+# Interactively show file history across all branches
+set -euo pipefail
+
+if [ $# -lt 1 ]; then
+  echo "Interactively show file history across all branches"
+  echo "Usage: git fhai <path>..." >&2
+  echo "" >&2
+  echo "Examples:" >&2
+  echo "  git fhai src/index.php                 # History of a single file" >&2
+  echo "  git fhai src/Domain/                   # History of a whole directory" >&2
+  echo "  git fhai src/index.php src/Kernel.php  # History of multiple files" >&2
+  exit 1
+fi
+
+git fha "$1" | \
+  fzf --ansi \
+  --header "File history (All branches):" \
+  --prompt "fhai> " \
+  --color=header:cyan:italic,prompt:yellow:italic \
+  --no-sort \
+  --reverse \
+  --no-hscroll \
+  --preview 'commit=$(echo {} | grep -Eo "[a-f0-9]{7,}" | head -1); git show --color=always $commit' \
+  --preview-window=right:60%
+

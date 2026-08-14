@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+# Find commits by source code additions/deletions (case-insensitive)
+set -euo pipefail
+
+if [ $# -lt 1 ]; then
+  echo "Find commits by source code additions/deletions (case-insensitive)."
+  echo "Usage: git fc <search-string> [[--] <path>...]" >&2
+  echo "" >&2
+  echo "Examples:" >&2
+  echo "  git fc \"TODO: fix\"                # Search all files" >&2
+  echo "  git fc \"TODO: fix\" src/index.php  # Search only in src/index.php" >&2
+  exit 1
+fi
+
+SEARCH_TERM="$1"
+shift
+
+git log --topo-order --abbrev-commit --date=relative --decorate --pretty=mylog --color=always \
+  -i -S"$SEARCH_TERM" -- "$@"

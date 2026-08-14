@@ -1,0 +1,45 @@
+#!/usr/bin/env bash
+# Interactively rebase and autosquash fixup commits
+set -euo pipefail
+
+if [[ "${1:-}" == "-h" || $# -gt 1 ]]; then
+  echo "Interactively rebase and autosquash fixup commits."
+  echo "Usage: git fixpop [base-commit]" >&2
+  echo "" >&2
+  echo "Examples:" >&2
+  echo "  git fixpop            # Opens fzf to select the oldest commit you want to rewrite" >&2
+  echo "  git fixpop HEAD~5     # Rebase the last 5 commits" >&2
+  echo "  git fixpop main       # Rebase against the main branch" >&2
+  exit 1
+fi
+
+BASE_COMMIT="${1:-}"
+
+# If no argument was provided, open fzf to select the commit
+if [ -z "$BASE_COMMIT" ]; then
+  PREVIEW_CMD='commit=$(echo {} | grep -Eo "[a-f0-9]{7,}" | head -1); git show --color=always $commit'
+
+  echo "Select the OLDEST commit you want to include in the rebase:" >&2
+
+  SELECTED_HASH=$(git log --topo-order --abbrev-commit --date=relative --decorate --graph --pretty=mylog --color=always | \
+    fzf --ansi \
+    --header "Pop fixup commits:" \
+    --prompt "fixpop> " \
+    --color=header:cyan:italic,prompt:yellow:italic \
+    --no-sort \
+    --reverse \
+    --no-hscroll \
+    --preview "$PREVIEW_CMD" \
+    --preview-window=right:60% | \
+    grep -Eo '[a-f0-9]{7,}' | head -1 || true) # '|| true' to avoid errors in script if fzf aborts
+
+  if [ -z "$SELECTED_HASH" ]; then
+    echo "Aborted." >&2
+    exit 0
+  fi
+
+  BASE_COMMIT="${SELECTED_HASH}^"
+fi
+
+echo "Starting interactive rebase with autosquash from $BASE_COMMIT..."
+git rebase -i --autosquash "$BASE_COMMIT"

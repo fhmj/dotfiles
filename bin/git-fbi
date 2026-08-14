@@ -1,0 +1,29 @@
+#!/usr/bin/env bash
+# Interactively list branches that contain a specific commit
+set -euo pipefail
+
+if [ $# -lt 1 ]; then
+  echo "List branches that contain a specific commit."
+  echo "Usage: git fbi <commit-hash> [args...]" >&2
+  echo "" >&2
+  echo "Examples:" >&2
+  echo "  git fbi 1a2b3c4       # Search all branches (local and remote)" >&2
+  echo "  git fbi 1a2b3c4 -r    # Search only remote branches" >&2
+  exit 1
+fi
+
+PREVIEW_CMD='git log --topo-order --graph --abbrev-commit --date=relative --pretty=mylog --color=always -n 20 {1} --'
+
+git fb "$@" | \
+  # Sanitize input
+  sed -e 's/^[* ]*//' -e 's/ ->.*//' | \
+  # Pass to fzf
+  fzf --ansi \
+    --header "Branches containing commit:" \
+    --prompt "fbi> " \
+    --color=header:cyan:italic,prompt:yellow:italic \
+    --no-sort \
+    --reverse \
+    --no-hscroll \
+    --preview "$PREVIEW_CMD" \
+    --preview-window=right:60%

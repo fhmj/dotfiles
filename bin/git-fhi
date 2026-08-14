@@ -1,0 +1,25 @@
+#!/usr/bin/env bash
+# Interactively show file history on HEAD
+set -euo pipefail
+
+if [ $# -lt 1 ]; then
+  echo "Interactively show file history on HEAD"
+  echo "Usage: git fhi <path>..." >&2
+  echo "" >&2
+  echo "Examples:" >&2
+  echo "  git fhi src/index.php                 # History of a single file" >&2
+  echo "  git fhi src/Domain/                   # History of a whole directory" >&2
+  echo "  git fhi src/index.php src/Kernel.php  # History of multiple files" >&2
+  exit 1
+fi
+
+git fh "$1" | \
+  fzf --ansi \
+  --header "File history (HEAD):" \
+  --prompt "fhi> " \
+  --color=header:cyan:italic,prompt:yellow:italic \
+  --no-sort \
+  --reverse \
+  --no-hscroll \
+  --preview 'commit=$(echo {} | grep -Eo "[a-f0-9]{7,}" | head -1); git show --color=always $commit' \
+  --preview-window=right:60%

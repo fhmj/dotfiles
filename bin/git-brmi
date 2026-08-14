@@ -1,0 +1,26 @@
+#!/usr/bin/env bash
+# Interactively select merged branches to delete
+set -euo pipefail
+
+if [[ "${1:-}" == "-h" ]]; then
+  echo "Interactively select merged branches to delete."
+  echo "Usage: git brmi [base-branch]" >&2
+  exit 0
+fi
+
+BRANCHES=$(git brm "$@")
+
+if [ -z "$BRANCHES" ]; then
+  echo "No merged branches to delete."
+  exit 0
+fi
+
+echo "Use TAB to select multiple branches, then ENTER to delete." >&2
+
+SELECTED=$(echo "$BRANCHES" | fzf -m --prompt="Delete branches> " || true)
+
+if [ -n "$SELECTED" ]; then
+  echo "$SELECTED" | xargs git branch -d
+else
+  echo "Aborted."
+fi

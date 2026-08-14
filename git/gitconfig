@@ -63,3 +63,46 @@
 [color "decorate"]
   branch = green bold
   remoteBranch = red bold
+
+[pretty]
+	mylog = %C(red)%h%C(reset) -%C(auto)%d%C(reset) %s %C(blue)(%ad, %cn)%C(reset)
+
+[alias]
+  unstage = reset HEAD
+  undo = reset --soft HEAD^
+
+  a = add
+  aa = add --all
+  ap = add --patch
+  au = add --update
+
+  b = branch --sort=-committerdate --all --verbose
+  bd = branch --delete
+  bdd = branch --delete --force
+  bm = branch --move
+  bM = branch --move --force
+
+  c = commit
+  ca = commit --amend
+  ci = commit --interactive
+  cm = commit --message
+  cv = commit --verbose
+
+  d = diff
+  ds = diff --staged
+
+  o = checkout
+  ob = checkout -b
+
+  p = push
+
+  l = log --graph --topo-order --abbrev-commit --date=relative --decorate --all --boundary --pretty=mylog
+  lp = log --patch
+
+  s = status --short --branch
+  sa = status -s -uall
+
+  st = stash list
+  stu = stash -u
+  stp = stash pop
+  stdd = stash drop

@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+# List branches that contain a specific commit
+set -euo pipefail
+
+if [ $# -lt 1 ]; then
+  echo "List branches that contain a specific commit."
+  echo "Usage: git fb <commit-hash> [args...]" >&2
+  echo "" >&2
+  echo "Examples:" >&2
+  echo "  git fb 1a2b3c4       # Search all branches (local and remote)" >&2
+  echo "  git fb 1a2b3c4 -r    # Search only remote branches" >&2
+  exit 1
+fi
+
+COMMIT="$1"
+shift
+
+git branch -a --color=always --contains "$COMMIT" "$@"

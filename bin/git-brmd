@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+# Delete branches that have been fully merged
+set -euo pipefail
+
+if [[ "${1:-}" == "-h" ]]; then
+  echo "Delete all merged branches."
+  echo "Usage: git brmd [base-branch]" >&2
+  exit 0
+fi
+
+BRANCHES=$(git brm "$@")
+
+if [ -z "$BRANCHES" ]; then
+  echo "No merged branches to delete."
+  exit 0
+fi
+
+echo "Deleting the following branches:"
+echo "$BRANCHES" | sed 's/^/  - /'
+echo ""
+
+echo "$BRANCHES" | xargs git branch -d

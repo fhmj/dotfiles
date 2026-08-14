@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+# Interactively find commits by commit message
+set -euo pipefail
+
+if [ $# -lt 1 ]; then
+  echo "Interactively find commits by commit message."
+  echo "Usage: git fmi <search-string> [[--] <path>...]" >&2
+  echo "" >&2
+  echo "Examples:" >&2
+  echo "  git fmi \"fix bug\"                # Search all commits" >&2
+  echo "  git fmi \"fix bug\" src/index.php  # Search commits touching src/index.php" >&2
+  exit 1
+fi
+
+git fm "$@" | \
+  fzf --ansi \
+  --header "Find by commit message:" \
+  --prompt "fmi> " \
+  --color=header:cyan:italic,prompt:yellow:italic \
+  --no-sort \
+  --reverse \
+  --no-hscroll \
+  --preview 'commit=$(echo {} | grep -Eo "[a-f0-9]{7,}" | head -1); git show --color=always $commit' \
+  --preview-window=right:60%

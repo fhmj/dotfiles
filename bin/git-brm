@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+# List branches merged into a target branch (defaults to current)
+set -euo pipefail
+
+if [[ "${1:-}" == "-h" ]]; then
+  echo "List merged branches safe for deletion."
+  echo "Usage: git brm [base-branch]" >&2
+  exit 0
+fi
+
+BASE="${1:-HEAD}"
+
+ACTUAL_BASE=$(git rev-parse --abbrev-ref "$BASE" 2>/dev/null || echo "$BASE")
+
+git branch --merged "$BASE" | \
+  sed 's/^[ *]*//' | \
+  grep -v -E "^(${ACTUAL_BASE}|master|main|develop)$" || true
