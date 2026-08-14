@@ -257,6 +257,9 @@ hl.bind(altMod .. " + Q", hl.dsp.exec_cmd(
   "command -v hyprshutdown >/dev/null 2>&1 && hyprshutdown || hyprctl dispatch 'hl.dsp.exit()'"
 ))
 
+-- Refresh config
+hl.bind(mainMod .. " + R", hl.dsp.exec_cmd("~/.local/bin/refresh-config"))
+
 -- Window management
 hl.bind(mainMod .. " + Q", hl.dsp.window.close())
 hl.bind(mainMod .. " + F", hl.dsp.window.fullscreen({ action = "toggle" }))
