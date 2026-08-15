@@ -34,6 +34,7 @@ local workBrowser = "firefox -p Work --name firefox-work"
 --
 hl.on("hyprland.start", function ()
   hl.exec_cmd("quickshell")
+  hl.exec_cmd("hypridle")
 end)
 
 
