@@ -49,6 +49,7 @@ PACMAN_PACKAGES=(
   hyprland qt5-wayland qt6-wayland
   hyprpicker hypridle hyprshot hyprpolkitagent swaync
   hyprlauncher dolphin hyprshutdown hyprlock cliphist
+  quickshell gst-plugins-ugly gst-plugins-good gst-plugins-base gst-plugins-bad
   # Applications
   nvim kitty firefox gimp inkscape libreoffice-fresh filezilla
   prusa-slicer blender freecad zen-browser-bin
