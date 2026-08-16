@@ -15,6 +15,8 @@ MACHINE_HOSTNAME=$(uname -n)
 TARGET_USER="${SUDO_USER:-$(id -nu 1000 2>/dev/null || echo "archuser")}"
 DOTFILES_REPO="https://github.com/fhmj/dotfiles.git"
 DOTFILES_REMOTE_ORIGIN="git@github.com:fhmj/dotfiles.git"
+QYLOCK_REPO="https://github.com/Darkkal44/qylock.git"
+QYLOCK_THEME="forest"
 
 PACMAN_PACKAGES=(
   # Core system packages
@@ -205,6 +207,12 @@ gather_facts() {
   if [ ! -d "$DOTFILES_PATH" ]; then
     read -rp "Download dotfiles from \"$DOTFILES_REPO\" into \"$DOTFILES_PATH\"? [y/N]: " DOWNLOAD_DOTS
   fi
+
+  # Qylock
+  QYLOCK_PATH="$TARGET_HOME/.local/share/qylock"
+  if [ ! -d "$QYLOCK_PATH" ]; then
+    read -rp "Download qylock from \"$QYLOCK_REPO\" into \"$QYLOCK_PATH\"? [y/N]: " DOWNLOAD_QYLOCK
+  fi
 }
 
 confirm_changes() {
@@ -232,6 +240,10 @@ confirm_changes() {
 
   if [[ "${DOWNLOAD_DOTS:-}" =~ ^[yY]$ ]]; then
     log_action "Downloading dotfiles from \"$DOTFILES_REPO\" into \"$DOTFILES_PATH\""
+  fi
+
+  if [[ "${DOWNLOAD_QYLOCK:-}" =~ ^[yY]$ ]]; then
+    log_action "Downloading qylock from \"$QYLOCK_REPO\" into \"$QYLOCK_PATH\""
   fi
 
   # Packages
@@ -443,6 +455,34 @@ configure_sudo() {
   fi
 }
 
+install_login_screen() {
+  if [[ -z ${DOWNLOAD_QYLOCK:-} ]] || [[ ! "$DOWNLOAD_QYLOCK" =~ ^[yY]$ ]]; then
+    log_skip "Qylock not requested"
+    return
+  fi
+
+  log_step "Downloading qylock from \"$QYLOCK_REPO\" into \"$QYLOCK_PATH\""
+  runuser -u "$TARGET_USER" -- env GIT_TERMINAL_PROMPT=0 git clone "$QYLOCK_REPO" "$QYLOCK_PATH"
+  chmod +x "${QYLOCK_PATH}/quickshell.sh"
+  chmod +x "${QYLOCK_PATH}/sddm.sh"
+
+  # Configure SDDM theme
+  log_step "Configuring SDDM theme \"$QYLOCK_THEME\""
+  cp -r "${QYLOCK_PATH}"/themes/* /usr/share/sddm/themes
+  mkdir -p /etc/sddm.conf.d
+  {
+    echo "[Theme]"
+    echo "Current=${QYLOCK_THEME}"
+  } > /etc/sddm.conf.d/theme.conf
+
+  # Configure Quickshell lockscreen
+  TARGET_QYLOCK_DIR="${TARGET_HOME}/.local/share/quickshell-lockscreen"
+  rm -rf "$TARGET_QYLOCK_DIR"
+  runuser -u "$TARGET_USER" -- cp -r "${QYLOCK_PATH}/quickshell-lockscreen" "$TARGET_QYLOCK_DIR"
+  runuser -u "$TARGET_USER" -- ln -sfn "${QYLOCK_PATH}/themes" "${TARGET_QYLOCK_DIR}/themes_link"
+  chmod +x "${TARGET_QYLOCK_DIR}/lock.sh"
+}
+
 configure_packages() {
   # PHP
   log_step "Configuring PHP"
@@ -515,6 +555,7 @@ apply_changes() {
   configure_machine
   configure_sudo
   install_aur_packages
+  install_login_screen
   configure_packages
 }
 
