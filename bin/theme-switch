@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+
+$HOME/.local/share/qylock/sddm.sh && \
+$HOME/.local/share/qylock/quickshell.sh
