@@ -51,5 +51,11 @@ fi
 rm -rf $HOME/.config/hypr
 ln -s $DOTFILES/hyprland $HOME/.config/hypr
 
+# Prusa Slicer
+rm -r $HOME/.config/PrusaSlicer/filament
+rm -r $HOME/.config/PrusaSlicer/print
+ln -s $DOTFILES/prusa-slicer/filament $HOME/.config/PrusaSlicer/filament
+ln -s $DOTFILES/prusa-slicer/print $HOME/.config/PrusaSlicer/print
+
 # Refresh config
 source $HOME/.bashrc
