@@ -8,8 +8,8 @@ fi
 
 DOTFILES=$(cd $(dirname "${BASH_SOURCE[0]}") && pwd)
 
-# Ensure config dir exists
-mkdir -p $HOME/.config -p
+# Create default directories
+xdg-user-dirs-update
 
 # Bash
 ln -sf $DOTFILES/bash/bashrc $HOME/.bashrc
