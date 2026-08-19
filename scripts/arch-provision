@@ -186,6 +186,12 @@ configure_services() {
     echo "Numlock=on";
   } | sudo tee /etc/sddm.conf.d/10-general.conf > /dev/null
   sudo systemctl enable --quiet sddm bluetooth systemd-timesyncd.service
+
+  mkdir -p "$TARGET_HOME/.config/systemd/user"
+  ln -sf "$DOTFILES/systemd/gdrive-sync.service" "$TARGET_HOME/.config/systemd/user/gdrive-sync.service"
+  ln -sf "$DOTFILES/systemd/gdrive-sync.timer" "$TARGET_HOME/.config/systemd/user/gdrive-sync.timer"
+  systemctl --user daemon-reload
+  systemctl --user enable --quiet --now gdrive-sync.timer
 }
 
 main() {

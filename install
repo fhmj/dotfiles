@@ -44,18 +44,6 @@ ln -sf $DOTFILES/systemd/ssh-agent.service $HOME/.config/systemd/user/ssh-agent.
 systemctl --user daemon-reload
 systemctl --user enable --quiet --now ssh-agent.service
 
-# Google Drive sync daemon
-mkdir -p $HOME/.config/systemd/user
-ln -sf $DOTFILES/systemd/gdrive-sync.service $HOME/.config/systemd/user/gdrive-sync.service
-ln -sf $DOTFILES/systemd/gdrive-sync.timer $HOME/.config/systemd/user/gdrive-sync.timer
-if rclone listremotes 2>/dev/null | grep -q '^gdrive:'; then
-  systemctl --user daemon-reload
-  systemctl --user enable --quiet --now gdrive-sync.timer
-else
-  echo "Failed to setup Google Drive sync. No 'gdrive' rclone remote found."
-  echo "Please run gdrive-sync for first time setup, then re-run this command."
-fi
-
 # Custom functions
 rm -rf $HOME/.local/bin
 ln -s $DOTFILES/bin $HOME/.local/bin
