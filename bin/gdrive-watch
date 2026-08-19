@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+
+LOCAL="$HOME/GoogleDrive"
+
+# Ensure inotify-tools is installed
+if ! command -v inotifywait >/dev/null 2>&1; then
+  echo "Error: inotify-tools package is not installed." >&2
+  exit 1
+fi
+
+echo "Watching $LOCAL for changes..."
+
+inotifywait -q -m -r -e modify,create,delete,move,close_write "$LOCAL" | \
+  while read -r path action file; do
+    echo "Change detected ($action on $file). Waiting 30s to batch edits..."
+
+    timeout 30 cat > /dev/null
+
+    echo "Triggering sync..."
+    systemctl --user start gdrive-sync.service
+done

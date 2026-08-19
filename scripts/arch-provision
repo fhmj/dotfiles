@@ -190,8 +190,10 @@ configure_services() {
   mkdir -p "$TARGET_HOME/.config/systemd/user"
   ln -sf "$DOTFILES/systemd/gdrive-sync.service" "$TARGET_HOME/.config/systemd/user/gdrive-sync.service"
   ln -sf "$DOTFILES/systemd/gdrive-sync.timer" "$TARGET_HOME/.config/systemd/user/gdrive-sync.timer"
+  ln -sf "$DOTFILES/systemd/gdrive-watch.service" "$TARGET_HOME/.config/systemd/user/gdrive-watch.service"
   systemctl --user daemon-reload
   systemctl --user enable --quiet --now gdrive-sync.timer
+  systemctl --user enable --quiet --now gdrive-watch.service
 }
 
 main() {

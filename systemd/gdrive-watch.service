@@ -1,0 +1,11 @@
+[Unit]
+Description=Watch ~/GoogleDrive for changes and trigger sync
+After=network-online.target
+
+[Service]
+ExecStart=%h/.local/bin/gdrive-watch
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=default.target
