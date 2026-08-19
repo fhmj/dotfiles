@@ -54,4 +54,4 @@ alias dot="git -C $HOME/.dotfiles"
 alias cdot="cd $HOME/.dotfiles"
 
 # Hyprland
-alias hyprconf="nvim $HOME/.config/hypr/hyprland.lua"
+alias hyprconf="nvim $HOME/.config/hypr"
