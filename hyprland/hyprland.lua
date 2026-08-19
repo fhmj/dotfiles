@@ -287,8 +287,8 @@ hl.bind(altMod .. " + J",  hl.dsp.window.move({ direction = "down" }))
 hl.bind("CTRL + SHIFT + SPACE",  hl.dsp.exec_cmd("playerctl play-pause"), { locked = true })
 hl.bind("CTRL + SHIFT + Q",  hl.dsp.exec_cmd("playerctl previous"),   { locked = true })
 hl.bind("CTRL + SHIFT + W",  hl.dsp.exec_cmd("playerctl next"),       { locked = true })
-hl.bind("CTRL + SHIFT + A",  hl.dsp.exec_cmd("playerctl volume 0.1-"),   { locked = true })
-hl.bind("CTRL + SHIFT + S",  hl.dsp.exec_cmd("playerctl volume 0.1+"),       { locked = true })
+hl.bind("CTRL + SHIFT + A",  hl.dsp.exec_cmd("playerctl volume 0.1-"),   { locked = true, repeating = true })
+hl.bind("CTRL + SHIFT + S",  hl.dsp.exec_cmd("playerctl volume 0.1+"),       { locked = true, repeating = true })
 
 -- Apps
 hl.bind(mainMod .. " + space", hl.dsp.exec_cmd(menu))
