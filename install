@@ -12,13 +12,13 @@ DOTFILES=$(cd $(dirname "${BASH_SOURCE[0]}") && pwd)
 xdg-user-dirs-update
 
 # Bash
-ln -sf $DOTFILES/bash/bashrc $HOME/.bashrc
-ln -sf $DOTFILES/bash/alias $HOME/.alias
-ln -sf $DOTFILES/bash/prompt $HOME/.prompt
-ln -sf $DOTFILES/bash/inputrc $HOME/.inputrc
+ln -sf $DOTFILES/bash/.bashrc $HOME/.bashrc
+ln -sf $DOTFILES/bash/.alias $HOME/.alias
+ln -sf $DOTFILES/bash/.prompt $HOME/.prompt
+ln -sf $DOTFILES/bash/.inputrc $HOME/.inputrc
 
 # Git
-ln -sf $DOTFILES/git/gitconfig $HOME/.gitconfig
+ln -sf $DOTFILES/git/.gitconfig $HOME/.gitconfig
 
 # Kitty
 rm -rf $HOME/.config/kitty
