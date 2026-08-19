@@ -8,8 +8,6 @@ fi
 
 DOTFILES=$(cd $(dirname "${BASH_SOURCE[0]}") && pwd)
 
-# Create default directories
-xdg-user-dirs-update
 
 # Bash
 ln -sf $DOTFILES/bash/.bashrc $HOME/.bashrc
@@ -57,6 +55,11 @@ rm -r $HOME/.config/PrusaSlicer/filament
 rm -r $HOME/.config/PrusaSlicer/print
 ln -s $DOTFILES/prusa-slicer/filament $HOME/.config/PrusaSlicer/filament
 ln -s $DOTFILES/prusa-slicer/print $HOME/.config/PrusaSlicer/print
+
+# Google Drive links
+for dir in Desktop Documents Music Videos; do
+  ln -sf "$HOME/GoogleDrive/$dir" "$HOME/$dir"
+done
 
 # Refresh config
 source $HOME/.bashrc
