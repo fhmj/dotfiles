@@ -129,6 +129,18 @@ install_login_screen() {
   chmod +x "${link_dir}/lock.sh"
 }
 
+install_symfony() {
+  if ! command -v symfony &> /dev/null; then
+    log_step "Installing Symfony"
+    rm -rf "$TARGET_HOME/.symfony5"
+    rm -rf "$TARGET_HOME/.config/symfony-cli"
+    bash -c 'curl -sS https://get.symfony.com/cli/installer | bash' &> /dev/null
+    mkdir -p "$TARGET_HOME/.config"
+    mv "$TARGET_HOME/.symfony5" "$TARGET_HOME/.config/symfony-cli"
+    ln -sf "$TARGET_HOME/.config/symfony-cli/bin/symfony" "$TARGET_HOME/.local/bin/symfony"
+  fi
+}
+
 configure_services() {
   log_step "Configuring PHP"
   sudo sed -i "s|^;date.timezone =.*|date.timezone = ${TIMEZONE}|" /etc/php/php.ini
@@ -188,6 +200,7 @@ main() {
   install_aur_packages
   setup_pacman_hook
   install_login_screen
+  install_symfony
   configure_services
 
   log_step "Done. Running ./install"
