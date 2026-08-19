@@ -8,22 +8,44 @@ fi
 
 DOTFILES=$(cd $(dirname "${BASH_SOURCE[0]}") && pwd)
 
+safe_link() {
+  if [ "$#" -ne 2 ]; then
+    echo "Usage: safe_link <source_dir> <destination_link>"
+    return 1
+  fi
+
+  local src="$1"
+  local dest="$2"
+
+  # If file exists, or it's a link
+  if [ -e "$dest" ] || [ -L "$dest" ]; then
+    # If not a link, or not pointing to target, backup
+    if [ ! -L "$dest" ] || [ ! "$(readlink "$dest")" = "$src" ]; then
+      # Back up the existing file/folder using a timestamp
+      local backup_name="${dest}.bk_$(date +%Y%m%d_%H%M%S)"
+      mv "$dest" "$backup_name"
+
+      ln -s "$src" "$dest"
+    fi
+  else
+    ln -s "$src" "$dest"
+  fi
+}
 
 # Bash
-ln -sf $DOTFILES/bash/.bashrc $HOME/.bashrc
-ln -sf $DOTFILES/bash/.alias $HOME/.alias
-ln -sf $DOTFILES/bash/.prompt $HOME/.prompt
-ln -sf $DOTFILES/bash/.inputrc $HOME/.inputrc
+safe_link $DOTFILES/bash/.bashrc $HOME/.bashrc
+safe_link $DOTFILES/bash/.alias $HOME/.alias
+safe_link $DOTFILES/bash/.prompt $HOME/.prompt
+safe_link $DOTFILES/bash/.inputrc $HOME/.inputrc
 
 # Git
-ln -sf $DOTFILES/git/.gitconfig $HOME/.gitconfig
+safe_link $DOTFILES/git/.gitconfig $HOME/.gitconfig
 
 # Kitty
-rm -rf $HOME/.config/kitty
-ln -s $DOTFILES/kitty $HOME/.config/kitty
+safe_link $DOTFILES/kitty $HOME/.config/kitty
 
 # Tmux
-ln -sf $DOTFILES/tmux/tmux.conf $HOME/.tmux.conf
+safe_link $DOTFILES/tmux/tmux.conf $HOME/.tmux.conf
 
 # SSH key
 SSH_KEY="$HOME/.ssh/id_ed25519"
@@ -44,21 +66,21 @@ systemctl --user enable --quiet --now ssh-agent.service
 
 # Custom functions
 rm -rf $HOME/.local/bin
-ln -s $DOTFILES/bin $HOME/.local/bin
+safe_link $DOTFILES/bin $HOME/.local/bin
 
 # Hyprland
 rm -rf $HOME/.config/hypr
-ln -s $DOTFILES/hyprland $HOME/.config/hypr
+safe_link $DOTFILES/hyprland $HOME/.config/hypr
 
 # Prusa Slicer
 rm -r $HOME/.config/PrusaSlicer/filament
 rm -r $HOME/.config/PrusaSlicer/print
-ln -s $DOTFILES/prusa-slicer/filament $HOME/.config/PrusaSlicer/filament
-ln -s $DOTFILES/prusa-slicer/print $HOME/.config/PrusaSlicer/print
+safe_link $DOTFILES/prusa-slicer/filament $HOME/.config/PrusaSlicer/filament
+safe_link $DOTFILES/prusa-slicer/print $HOME/.config/PrusaSlicer/print
 
 # Google Drive links
 for dir in Desktop Documents Music Videos; do
-  ln -sf "$HOME/GoogleDrive/$dir" "$HOME/$dir"
+  safe_link "$HOME/GoogleDrive/$dir" "$HOME/$dir"
 done
 
 # Refresh config
