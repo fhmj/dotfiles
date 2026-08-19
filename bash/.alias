@@ -30,6 +30,7 @@ alias d="cd ~/Documents"
 alias dl="cd ~/Downloads"
 alias dt="cd ~/Desktop"
 alias p="cd ~/Projects"
+alias gd="cd ~/GoogleDrive"
 
 alias week="date '+%d/%m/%Y(W%V) %H:%M:%S'"
 

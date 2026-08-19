@@ -1,0 +1,56 @@
+#!/usr/bin/env bash
+# Two-way sync between ~/GoogleDrive and the "gdrive" rclone remote.
+# Safe to run repeatedly: detects first run and performs the required
+# --resync automatically, and refuses to start a second overlapping run.
+
+set -euo pipefail
+
+REMOTE="gdrive:"
+LOCAL="$HOME/GoogleDrive"
+STATE_DIR="$HOME/.cache/rclone/bisync"
+LOG_FILE="$HOME/.local/state/gdrive-sync.log"
+LOCK_FILE="/tmp/gdrive-sync.lock"
+
+BISYNC_ARGS=()
+
+mkdir -p "$LOCAL" "$(dirname "$LOG_FILE")"
+
+exec 9>"$LOCK_FILE"
+if ! flock -n 9; then
+  echo "gdrive-sync already running, skipping this run"
+  exit 0
+fi
+
+# Detect if run interactively (user in a terminal) or in the background (systemd)
+if [ -t 1 ]; then
+  INTERACTIVE=true
+  BISYNC_ARGS+=(--progress)
+else
+  INTERACTIVE=false
+  BISYNC_ARGS+=(--log-level WARNING)
+  BISYNC_ARGS+=(--log-file "$LOG_FILE")
+fi
+
+if ! rclone listremotes 2>/dev/null | grep -q '^gdrive:'; then
+  if [ "$INTERACTIVE" = true ]; then
+    echo "No 'gdrive' rclone remote found. Opening browser for one-time Google Drive login..."
+    rclone config create gdrive drive || \
+      echo "Google Drive login skipped or failed."
+    exit 0
+  else
+    echo "No 'gdrive' rclone remote found while running under systemd." >> "$LOG_FILE"
+    exit 0
+  fi
+fi
+
+if [ ! -d "$STATE_DIR" ] || [ -z "$(ls -A "$STATE_DIR" 2>/dev/null)" ]; then
+  echo "No prior sync state found. Performing initial --resync"
+  BISYNC_ARGS+=(--resync)
+fi
+
+rclone bisync "$LOCAL" "$REMOTE" \
+  "${BISYNC_ARGS[@]}" \
+  --conflict-resolve newer \
+  --create-empty-src-dirs \
+  --compare size,modtime,checksum \
+  "$@"

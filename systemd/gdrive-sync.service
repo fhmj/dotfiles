@@ -1,0 +1,8 @@
+[Unit]
+Description=Sync ~/GoogleDrive with Google Drive (rclone bisync)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=%h/.local/bin/gdrive-sync
