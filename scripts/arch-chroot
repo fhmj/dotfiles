@@ -1,0 +1,181 @@
+#!/usr/bin/env bash
+# Setup a bootable system with network and sudo user.
+#
+# Run from the Arch ISO after:
+# 1. pacstrap /mnt base linux linux-firmware sudo networkmanager grub efibootmgr
+# 2. arch-chroot /mnt
+
+set -euo pipefail
+
+# Settings
+TIMEZONE="Europe/Copenhagen"
+KEYMAP="dk"
+LANGUAGE="en_DK.UTF-8"
+GRUB_TIMEOUT=0
+GRUB_TIMEOUT_STYLE="hidden"
+
+MACHINE_HOSTNAME=$(uname -n)
+TARGET_USER="${SUDO_USER:-archuser}"
+
+# Helpers
+C_GREEN='\033[1;32m'
+C_CYAN='\033[1;36m'
+C_RED='\033[1;31m'
+C_RESET='\033[0m'
+log_step()   { printf "\n${C_GREEN}==> %s${C_RESET}\n" "$*"; }
+log_action() { printf "  ${C_GREEN}+${C_RESET} %s\n" "$*"; }
+log_skip()   { printf "\n${C_CYAN}==> %s, skipping${C_RESET}\n" "$*"; }
+log_error()  { printf "${C_RED}  ✘ %s${C_RESET}\n" "$*" >&2; }
+
+validate_settings() {
+  if [[ ! -d /sys/firmware/efi/efivars ]]; then
+    log_error "Not booted in UEFI mode."
+    log_error "This script only automates the UEFI GRUB path - configure bootloader manually for BIOS/legacy."
+    exit 1
+  fi
+  if ! mountpoint -q /boot; then
+    log_error "/boot is not a mounted filesystem - mount your EFI system partition at /boot first."
+    exit 1
+  fi
+  if [[ ! -f "/usr/share/zoneinfo/$TIMEZONE" ]]; then
+    log_error "Unknown timezone \"$TIMEZONE\" - see /usr/share/zoneinfo"
+    exit 1
+  fi
+  if ! find /usr/share/kbd/keymaps/ -type f -name "${KEYMAP}.map.gz" | grep -q .; then
+    log_error "Unknown keymap \"$KEYMAP\" - see /usr/share/kbd/keymaps"
+    exit 1
+  fi
+  if ! grep -qE "^#?${LANGUAGE//./\\.}" /etc/locale.gen; then
+    log_error "Unknown language \"$LANGUAGE\" - see /etc/locale.gen"
+    exit 1
+  fi
+}
+
+gather_facts() {
+  read -rp "Hostname [$MACHINE_HOSTNAME]: " PROMPT
+  MACHINE_HOSTNAME="${PROMPT:-$MACHINE_HOSTNAME}"
+
+  while true; do
+    read -rp "Root password (leave empty to skip): " -s ROOT_PASS && echo
+    [[ -z $ROOT_PASS ]] && break
+    read -rp "Repeat root password: " -s ROOT_PASS_REPEAT && echo
+    [[ "$ROOT_PASS" == "$ROOT_PASS_REPEAT" ]] && break
+    log_error "Passwords did not match, try again"
+  done
+
+  while true; do
+    read -rp "Sudo username [$TARGET_USER]: " PROMPT
+    if [[ "$PROMPT" == "root" ]]; then
+      log_error "Sudo user cannot be \"root\""
+      continue
+    fi
+    TARGET_USER="${PROMPT:-$TARGET_USER}"
+    break
+  done
+
+  while true; do
+    read -rp "Password for $TARGET_USER (leave empty to skip): " -s USER_PASS && echo
+    [[ -z $USER_PASS ]] && break
+    read -rp "Repeat password: " -s USER_PASS_REPEAT && echo
+    [[ "$USER_PASS" == "$USER_PASS_REPEAT" ]] && break
+    log_error "Passwords did not match, try again"
+  done
+}
+
+confirm_changes() {
+  log_step "Applying changes"
+  log_action "Install GRUB bootloader"
+  log_action "Set hostname to \"$MACHINE_HOSTNAME\""
+  log_action "Set timezone to \"$TIMEZONE\", keymap to \"$KEYMAP\", locale to \"$LANGUAGE\""
+  [[ -n ${ROOT_PASS:-} ]] && log_action "Set root password"
+  log_action "Create sudo user \"$TARGET_USER\" and enable NetworkManager"
+  [[ -n ${USER_PASS:-} ]] && log_action "Set password for \"$TARGET_USER\""
+  echo
+
+  read -rp "Proceed? [y/N]: " PROMPT
+  [[ "$PROMPT" =~ ^[yY]$ ]] || { echo "Aborting"; exit 0; }
+}
+
+configure_bootloader() {
+  log_step "Installing GRUB"
+  pacman -S --needed --noconfirm grub efibootmgr
+  if [[ ! -f /boot/EFI/GRUB/grubx64.efi ]]; then
+    grub-install --target=x86_64-efi --efi-directory=/boot --bootloader-id=GRUB
+  fi
+  sed -i "s/^GRUB_TIMEOUT=.*/GRUB_TIMEOUT=${GRUB_TIMEOUT}/" /etc/default/grub
+  sed -i "s/^GRUB_TIMEOUT_STYLE=.*/GRUB_TIMEOUT_STYLE=${GRUB_TIMEOUT_STYLE}/" /etc/default/grub
+  grub-mkconfig -o /boot/grub/grub.cfg &> /dev/null
+}
+
+configure_machine() {
+  log_step "Setting hostname, timezone, locale, keymap"
+  echo "$MACHINE_HOSTNAME" > /etc/hostname
+  ln -sf "/usr/share/zoneinfo/$TIMEZONE" /etc/localtime
+  hwclock --systohc
+
+  sed -i "s/^#${LANGUAGE//./\\.}/$LANGUAGE/" /etc/locale.gen
+  sed -i 's/^#en_US.UTF-8 UTF-8/en_US.UTF-8 UTF-8/' /etc/locale.gen
+  locale-gen > /dev/null
+  echo "LANG=$LANGUAGE" > /etc/locale.conf
+  echo "KEYMAP=$KEYMAP" > /etc/vconsole.conf
+
+  mkdir -p /etc/X11/xorg.conf.d
+  {
+    echo 'Section "InputClass"'
+    echo '    Identifier "system-keyboard"'
+    echo '    MatchIsKeyboard "on"'
+    echo "    Option \"XkbLayout\" \"$KEYMAP\""
+    echo 'EndSection'
+  } > /etc/X11/xorg.conf.d/00-keyboard.conf
+
+  if [[ -n "${ROOT_PASS:-}" ]]; then
+    chpasswd <<< "root:${ROOT_PASS}"
+  fi
+}
+
+configure_sudo_user() {
+  log_step "Setting up sudo user \"$TARGET_USER\""
+  echo "%wheel ALL=(ALL:ALL) ALL" > /etc/sudoers.d/10-wheel
+  chmod 440 /etc/sudoers.d/10-wheel
+  visudo -cf /etc/sudoers.d/10-wheel > /dev/null
+
+  if id -u "$TARGET_USER" &>/dev/null; then
+    usermod -aG wheel "$TARGET_USER"
+  else
+    useradd -m -G wheel -s /bin/bash "$TARGET_USER"
+  fi
+
+  if [[ -n "${USER_PASS:-}" ]]; then
+    chpasswd <<< "${TARGET_USER}:${USER_PASS}"
+  fi
+}
+
+configure_network() {
+  log_step "Enabling NetworkManager"
+  pacman -S --needed --noconfirm networkmanager
+  systemctl enable NetworkManager
+}
+
+main() {
+  if [[ "$EUID" -ne 0 ]]; then
+    log_error "This script must be run as root."
+    exit 1
+  fi
+
+  log_step "Arch chroot setup"
+
+  {
+    validate_settings
+    gather_facts
+    confirm_changes
+  } < /dev/tty
+
+  configure_bootloader
+  configure_machine
+  configure_sudo_user
+  configure_network
+
+  log_step "Done. Exit chroot, unmount, and reboot into your new system as \"$TARGET_USER\"."
+}
+
+main

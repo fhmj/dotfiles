@@ -1,0 +1,197 @@
+#!/usr/bin/env bash
+# Installs packages, configures services, and wires up dotfiles.
+
+set -euo pipefail
+
+DOTFILES="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+
+# Settings
+REFLECTOR_COUNTRIES="Denmark,Germany,France"
+TIMEZONE="Europe/Copenhagen"
+QYLOCK_THEME="forest"
+
+QYLOCK_REPO="https://github.com/Darkkal44/qylock.git"
+TARGET_USER="${USER:-}"
+TARGET_HOME=$(getent passwd "$TARGET_USER" | cut -d: -f6)
+PACMAN_PACKAGES="$DOTFILES/packages.txt"
+AUR_PACKAGES="$DOTFILES/aur-packages.txt"
+PHP_EXT=(
+  gd intl iconv
+  sqlite3 pdo_sqlite pdo_pgsql pgsql
+)
+
+# Helpers
+C_GREEN='\033[1;32m'
+C_CYAN='\033[1;36m'
+C_RED='\033[1;31m'
+C_RESET='\033[0m'
+log_step()   { printf "\n${C_GREEN}==> %s${C_RESET}\n" "$*"; }
+log_action() { printf "  ${C_GREEN}+${C_RESET} %s\n" "$*"; }
+log_skip()   { printf "\n${C_CYAN}==> %s, skipping${C_RESET}\n" "$*"; }
+log_error()  { printf "${C_RED}  ✘ %s${C_RESET}\n" "$*" >&2; }
+
+read_package_list() {
+  # Strips comments/blank lines from a package list file
+  grep -vE '^\s*(#|$)' "$1" || true
+}
+
+install_pacman_packages() {
+  mapfile -t packages < <(read_package_list "$PACMAN_PACKAGES")
+  [[ ${#packages[@]} -eq 0 ]] && return
+
+  local missing_packages=()
+  for pkg in "${packages[@]}"; do
+    if ! pacman -Qi "$pkg" &>/dev/null; then
+      missing_packages+=("$pkg")
+    fi
+  done
+
+  log_step "Enabling multilib"
+  if ! grep -q '^\[multilib\]' /etc/pacman.conf; then
+    sed -i '/^#\[multilib\]/,/^#Include/ s/^#//' /etc/pacman.conf
+  fi
+
+  sudo pacman -Syu
+  if [[ ${#missing_packages[@]} -gt 0 ]]; then
+    log_step "Installing pacman packages"
+    sudo pacman -S --needed "${missing_packages[@]}"
+  fi
+}
+
+install_aur_packages() {
+  mapfile -t aur_packages < <(read_package_list "$AUR_PACKAGES")
+  [[ ${#aur_packages[@]} -eq 0 ]] && return
+
+  if ! command -v paru &>/dev/null; then
+    log_step "Installing paru"
+    rm -rf /tmp/makepkg_paru
+    git clone -q https://aur.archlinux.org/paru.git /tmp/makepkg_paru
+    (cd /tmp/makepkg_paru && makepkg -si --noconfirm)
+    rm -rf /tmp/makepkg_paru
+  fi
+
+  local missing_aur_packages=()
+  for pkg in "${aur_packages[@]}"; do
+    if ! pacman -Qi "$pkg" &>/dev/null; then
+      missing_aur_packages+=("$pkg")
+    fi
+  done
+
+  if [[ ${#missing_aur_packages[@]} -gt 0 ]]; then
+    log_step "Installing AUR packages"
+    paru -S --needed "${missing_aur_packages[@]}"
+  fi
+}
+
+setup_pacman_hook() {
+  log_step "Installing pacman package-tracking hook"
+  sudo mkdir -p /etc/pacman.d/hooks
+  {
+    echo "[Trigger]"
+    echo "Operation = Install"
+    echo "Type = Package"
+    echo "Target = *"
+    echo
+    echo "[Action]"
+    echo "Description = Tracking newly installed packages..."
+    echo "When = PostTransaction"
+    echo "NeedsTargets"
+    echo "Exec = ${DOTFILES}/bin/track-pkg"
+  } | sudo tee "/etc/pacman.d/hooks/track-packages-${TARGET_USER}.hook" > /dev/null
+}
+
+install_login_screen() {
+  local qylock_path="$TARGET_HOME/.local/share/qylock"
+  if [[ -d "$qylock_path" ]]; then
+    log_skip "qylock already present"
+    return
+  fi
+
+  read -rp "Install qylock login screen? [y/N]: " PROMPT
+  if [[ ! "$PROMPT" =~ ^[yY]$ ]]; then
+    return
+  fi
+
+  log_step "Installing qylock"
+  git clone -q "$QYLOCK_REPO" "$qylock_path"
+  chmod +x "${qylock_path}/quickshell.sh" "${qylock_path}/sddm.sh"
+  cp -r "${qylock_path}"/themes/* /usr/share/sddm/themes
+  sudo mkdir -p /etc/sddm.conf.d
+  {
+    echo "[Theme]";
+    echo "Current=${QYLOCK_THEME}";
+  } | sudo tee /etc/sddm.conf.d/theme.conf > /dev/null
+
+  local link_dir="${TARGET_HOME}/.local/share/quickshell-lockscreen"
+  rm -rf "$link_dir"
+  cp -r "${qylock_path}/quickshell-lockscreen" "$link_dir"
+  ln -sfn "${qylock_path}/themes" "${link_dir}/themes_link"
+  chmod +x "${link_dir}/lock.sh"
+}
+
+configure_services() {
+  log_step "Configuring PHP"
+  sudo sed -i "s|^;date.timezone =.*|date.timezone = ${TIMEZONE}|" /etc/php/php.ini
+
+  for ext in "${PHP_EXT[@]}"; do
+    sudo sed -i "s/^;extension=${ext}/extension=${ext}/" /etc/php/php.ini
+  done
+
+  log_step "Configuring Ansible"
+  sudo mkdir -p /etc/ansible
+  {
+    echo "[ssh_connection]"
+    echo "pipelining = true"
+    echo "ssh_extra_args = -o ForwardAgent=yes"
+  } | sudo tee /etc/ansible/ansible.cfg > /dev/null
+
+  log_step "Docker"
+  sudo groupadd -f docker
+  sudo usermod -aG docker "$TARGET_USER"
+  sudo systemctl enable --quiet docker.service
+
+  log_step "UFW"
+  sudo sed -i 's/^DEFAULT_INPUT_POLICY=.*/DEFAULT_INPUT_POLICY="DROP"/' /etc/default/ufw
+  sudo sed -i 's/^DEFAULT_OUTPUT_POLICY=.*/DEFAULT_OUTPUT_POLICY="ACCEPT"/' /etc/default/ufw
+  sudo sed -i 's/^ENABLED=.*/ENABLED=yes/' /etc/ufw/ufw.conf
+  sudo systemctl enable --quiet ufw
+
+  log_step "Reflector"
+  sudo mkdir -p /etc/xdg/reflector
+  {
+    echo "--save /etc/pacman.d/mirrorlist"
+    echo "--protocol https"
+    echo "--latest 10"
+    echo "--sort rate"
+    echo "--country ${REFLECTOR_COUNTRIES}"
+  } | sudo tee /etc/xdg/reflector/reflector.conf > /dev/null
+  sudo systemctl enable --quiet reflector.timer
+
+  log_step "SDDM, Bluetooth, NTP"
+  sudo mkdir -p /etc/sddm.conf.d
+  {
+    echo "[General]";
+    echo "Numlock=on";
+  } | sudo tee /etc/sddm.conf.d/10-general.conf > /dev/null
+  sudo systemctl enable --quiet sddm bluetooth systemd-timesyncd.service
+}
+
+main() {
+  if [[ "$EUID" -eq 0 ]]; then
+    log_error "This script must be run as your normal user."
+    exit 1
+  fi
+
+  log_step "Arch provisioning for \"$TARGET_USER\""
+
+  install_pacman_packages
+  install_aur_packages
+  setup_pacman_hook
+  install_login_screen
+  configure_services
+
+  log_step "Done. Running ./install"
+  "$DOTFILES/install"
+}
+
+main

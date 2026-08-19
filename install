@@ -27,6 +27,17 @@ ln -s $DOTFILES/kitty $HOME/.config/kitty
 # Tmux
 ln -sf $DOTFILES/tmux/tmux.conf $HOME/.tmux.conf
 
+# SSH key
+SSH_KEY="$HOME/.ssh/id_ed25519"
+if [[ ! -f "$SSH_KEY" ]]; then
+  read -rp "SSH key '$SSH_KEY' not found. Generate one now? [y/N]: " PROMPT </dev/tty
+  if [[ "$PROMPT" =~ ^[yY]$ ]]; then
+    mkdir -p $(dirname "$SSH_KEY")
+    chmod 700 "$(dirname "$SSH_KEY")"
+    ssh-keygen -t ed25519 -f "$SSH_KEY"
+  fi
+fi
+
 # SSH agent
 mkdir -p $HOME/.config/systemd/user
 ln -sf $DOTFILES/systemd/ssh-agent.service $HOME/.config/systemd/user/ssh-agent.service
