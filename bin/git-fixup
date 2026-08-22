@@ -16,7 +16,7 @@ TARGET_COMMIT="${1:-}"
 
 # If no argument was provided, open fzf to select the commit
 if [ -z "$TARGET_COMMIT" ]; then
-  PREVIEW_CMD='commit=$(echo {} | grep -Eo "[a-f0-9]{7,}" | head -1); git show --color=always $commit'
+  PREVIEW_CMD='commit=$(echo {} | grep -Eo "[a-f0-9]{7,}" | head -1); git show --color=always --name-only $commit && echo && git show --format="" --color=always $commit'
 
   echo "Select the commit you want to fixup:" >&2
 
@@ -28,7 +28,6 @@ if [ -z "$TARGET_COMMIT" ]; then
     --no-sort \
     --reverse \
     --no-hscroll \
-    --preview 'commit=$(echo {} | grep -Eo "[a-f0-9]{7,}" | head -1); git show --color=always $commit' \
     --preview "$PREVIEW_CMD" \
     --preview-window=right:60% | \
     grep -Eo '[a-f0-9]{7,}' | head -1 || true) # '|| true' to avoid errors in script if fzf aborts
