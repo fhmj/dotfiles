@@ -140,6 +140,7 @@ install_symfony() {
 configure_services() {
   log_step "Configuring PHP"
   sudo sed -i "s|^;date.timezone =.*|date.timezone = ${TIMEZONE}|" /etc/php/php.ini
+  sudo sed -i "s|^memory_limit =.*|memory_limit = 512M|" /etc/php/php.ini
 
   for ext in "${PHP_EXT[@]}"; do
     sudo sed -i "s/^;extension=${ext}/extension=${ext}/" /etc/php/php.ini
