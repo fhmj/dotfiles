@@ -102,20 +102,13 @@ setup_pacman_hook() {
 
 install_login_screen() {
   local qylock_path="$TARGET_HOME/.local/share/qylock"
-  if [[ -d "$qylock_path" ]]; then
-    log_skip "qylock already present"
-    return
+  if [[ ! -d "$qylock_path" ]]; then
+    log_step "Installing qylock"
+    git clone -q "$QYLOCK_REPO" "$qylock_path"
+    chmod +x "${qylock_path}/quickshell.sh" "${qylock_path}/sddm.sh"
   fi
 
-  read -rp "Install qylock login screen? [y/N]: " PROMPT
-  if [[ ! "$PROMPT" =~ ^[yY]$ ]]; then
-    return
-  fi
-
-  log_step "Installing qylock"
-  git clone -q "$QYLOCK_REPO" "$qylock_path"
-  chmod +x "${qylock_path}/quickshell.sh" "${qylock_path}/sddm.sh"
-  cp -r "${qylock_path}"/themes/* /usr/share/sddm/themes
+  sudo cp -r "${qylock_path}"/themes/* /usr/share/sddm/themes
   sudo mkdir -p /etc/sddm.conf.d
   {
     echo "[Theme]";
@@ -127,6 +120,9 @@ install_login_screen() {
   cp -r "${qylock_path}/quickshell-lockscreen" "$link_dir"
   ln -sfn "${qylock_path}/themes" "${link_dir}/themes_link"
   chmod +x "${link_dir}/lock.sh"
+
+  mkdir -p "${TARGET_HOME}/.config/qylock"
+  echo "$QYLOCK_THEME" | sudo tee "${TARGET_HOME}/.config/qylock/theme" > /dev/null
 }
 
 install_symfony() {
